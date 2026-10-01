@@ -1,5 +1,6 @@
 package com.securitas.backend.detection;
 
+import com.securitas.backend.ai.GeminiForensicService;
 import com.securitas.backend.domain.Alert;
 import com.securitas.backend.domain.AlertRepository;
 import org.neo4j.cypherdsl.core.Cypher;
@@ -10,9 +11,12 @@ import org.neo4j.cypherdsl.core.Relationship;
 import org.neo4j.cypherdsl.core.Statement;
 import org.neo4j.cypherdsl.core.SymbolicName;
 import org.neo4j.cypherdsl.core.renderer.Renderer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.neo4j.core.Neo4jClient;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
 import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
@@ -33,17 +37,21 @@ import java.util.Map;
 @Service
 public class FraudDetectionService {
 
+    private static final Logger log = LoggerFactory.getLogger(FraudDetectionService.class);
     private static final Renderer RENDERER = Renderer.getDefaultRenderer();
     private static final int MIN_FAN_DEGREE = 5;
 
     private final Neo4jClient neo4jClient;
     private final AlertRepository alertRepository;
     private final ObjectMapper objectMapper;
+    private final GeminiForensicService geminiForensicService;
 
-    public FraudDetectionService(Neo4jClient neo4jClient, AlertRepository alertRepository, ObjectMapper objectMapper) {
+    public FraudDetectionService(Neo4jClient neo4jClient, AlertRepository alertRepository, ObjectMapper objectMapper,
+                                  GeminiForensicService geminiForensicService) {
         this.neo4jClient = neo4jClient;
         this.alertRepository = alertRepository;
         this.objectMapper = objectMapper;
+        this.geminiForensicService = geminiForensicService;
     }
 
     public List<Alert> scan() {
@@ -59,9 +67,22 @@ public class FraudDetectionService {
                 continue;
             }
             Alert alert = new Alert(pattern.patternType(), pattern.subgraphJson(), fingerprint);
-            newAlerts.add(alertRepository.save(alert));
+            alert = alertRepository.save(alert);
+            attachNarrative(alert);
+            newAlerts.add(alert);
         }
         return newAlerts;
+    }
+
+    /** Best-effort: a Gemini outage shouldn't stop the alert itself from being persisted. */
+    private void attachNarrative(Alert alert) {
+        try {
+            String narrative = geminiForensicService.generateNarrative(alert.getPatternType(), alert.getSubgraphJson());
+            alert.setNarrative(narrative);
+            alertRepository.save(alert);
+        } catch (RestClientException | IllegalStateException e) {
+            log.warn("Gemini narrative generation failed for alert {}: {}", alert.getId(), e.getMessage());
+        }
     }
 
     @Scheduled(fixedDelay = 60_000)
