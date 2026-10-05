@@ -20,7 +20,7 @@ public class GeminiForensicService {
 
     public GeminiForensicService(RestClient.Builder restClientBuilder,
                                   @Value("${gemini.api.key}") String apiKey,
-                                  @Value("${gemini.model:gemini-flash-latest}") String model) {
+                                  @Value("${gemini.model:gemini-3.1-flash-lite}") String model) {
         this.restClient = restClientBuilder.baseUrl(ENDPOINT_TEMPLATE.formatted(model)).build();
         this.apiKey = apiKey;
     }
