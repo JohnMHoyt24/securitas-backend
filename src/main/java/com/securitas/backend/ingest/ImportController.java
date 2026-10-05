@@ -11,10 +11,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-/**
- * Unsecured for now (SecurityConfig permits everything until Stage 6 adds JWT roles,
- * at which point this moves under ADMIN-only access).
- */
 @RestController
 @RequestMapping("/api/admin")
 public class ImportController {
