@@ -3,6 +3,7 @@ package com.securitas.backend.detection;
 import com.securitas.backend.ai.GeminiForensicService;
 import com.securitas.backend.domain.Alert;
 import com.securitas.backend.domain.AlertRepository;
+import com.securitas.backend.ws.AlertBroadcaster;
 import org.neo4j.cypherdsl.core.Cypher;
 import org.neo4j.cypherdsl.core.Expression;
 import org.neo4j.cypherdsl.core.NamedPath;
@@ -45,13 +46,15 @@ public class FraudDetectionService {
     private final AlertRepository alertRepository;
     private final ObjectMapper objectMapper;
     private final GeminiForensicService geminiForensicService;
+    private final AlertBroadcaster alertBroadcaster;
 
     public FraudDetectionService(Neo4jClient neo4jClient, AlertRepository alertRepository, ObjectMapper objectMapper,
-                                  GeminiForensicService geminiForensicService) {
+                                  GeminiForensicService geminiForensicService, AlertBroadcaster alertBroadcaster) {
         this.neo4jClient = neo4jClient;
         this.alertRepository = alertRepository;
         this.objectMapper = objectMapper;
         this.geminiForensicService = geminiForensicService;
+        this.alertBroadcaster = alertBroadcaster;
     }
 
     public List<Alert> scan() {
@@ -69,6 +72,7 @@ public class FraudDetectionService {
             Alert alert = new Alert(pattern.patternType(), pattern.subgraphJson(), fingerprint);
             alert = alertRepository.save(alert);
             attachNarrative(alert);
+            alertBroadcaster.broadcast(alert);
             newAlerts.add(alert);
         }
         return newAlerts;
