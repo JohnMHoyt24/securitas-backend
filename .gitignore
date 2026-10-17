@@ -40,8 +40,12 @@ build/
 *.log
 
 ### Properties files ###
-*.properties
+# Only ignore local override files, never the real application config.
+application-local.properties
+application-*.local.properties
 !.mvn/wrapper/maven-wrapper.properties
+!src/main/resources/**/*.properties
 
 ### SQL files ###
-*.sql
+# Only ignore ad-hoc scratch SQL, never Flyway migrations.
+!src/main/resources/db/migration/*.sql
